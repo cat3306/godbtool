@@ -25,10 +25,11 @@ type dbConfig struct {
 	MysqlConf mysqlConfig `json:"mysql_conf"`
 }
 type mysqlConfig struct {
-	Host string `json:"host"`
-	Port string `json:"port"`
-	User string `json:"user"`
-	Pwd  string `json:"pwd"`
+	Alias string `json:"-"`
+	Host  string `json:"host"`
+	Port  string `json:"port"`
+	User  string `json:"user"`
+	Pwd   string `json:"pwd"`
 }
 
 func initConf() error {
@@ -167,12 +168,12 @@ func commands() cli.Commands {
 	tmp := cli.Commands{
 		&cli.Command{
 			Name:   "add",
-			Usage:  "add db connect",
+			Usage:  "add db connect,example:godbtool add local 127.0.0.1 3306 root 12345678",
 			Action: addDbConn,
 		},
 		&cli.Command{
 			Name:   "del",
-			Usage:  "del db connect",
+			Usage:  "del db connect,example:godbtool del local",
 			Action: delDbConn,
 		},
 		&cli.Command{
@@ -185,6 +186,35 @@ func commands() cli.Commands {
 			Usage:  "struct to table,example:godbtool totable local model.go",
 			Action: toTable,
 		},
+		&cli.Command{
+			Name:   "get",
+			Usage:  "display conf,example:godbtool get [optional]",
+			Action: displayConf,
+		},
 	}
 	return tmp
+}
+
+func displayConf(ctx *cli.Context) error {
+	name := ""
+	if ctx.NArg() == 1 {
+		name = ctx.Args().Get(0)
+	}
+	if ctx.NArg() > 1 {
+		return errors.New("invalid args")
+	}
+	list := make([]*mysqlConfig, 0)
+	for k, v := range globalMap {
+		v := v
+		v.Alias = k
+		if name != "" {
+			if strings.Contains(k, name) {
+				list = append(list, v)
+			}
+		} else {
+			list = append(list, v)
+		}
+	}
+	fmt.Println(Table(list))
+	return nil
 }
