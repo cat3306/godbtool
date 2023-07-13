@@ -13,12 +13,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode"
 )
 
 const (
 	baseSrc = `
-package %s
+package main
 import (
 	"encoding/json"
 	"errors"
@@ -111,11 +110,11 @@ func struct2TableV2(srcFile string, conf *mysqlConfig) error {
 	if len(structs) == 0 {
 		return fmt.Errorf("src invalid,file:%s", srcFile)
 	}
-	newFile, err := writeTmpSrcFile(structs, pkg)
+	newFile, newSrcFile, err := writeTmpSrcFile(structs, pkg, srcRaw)
 	if err != nil {
 		return err
 	}
-	raw, err := loadSOFile(newFile, srcFile)
+	raw, err := loadSOFile(newFile, newSrcFile)
 	if err != nil {
 		return err
 	}
@@ -160,15 +159,22 @@ func struct2TableV2(srcFile string, conf *mysqlConfig) error {
 
 func loadSOFile(file string, src string) ([]byte, error) {
 	soFile := fmt.Sprintf("%s.so", file)
-	cmd := exec.Command(
+	cmd := exec.Command("go", "mod", "tidy", "&&",
 		"go", "build",
 		"-buildmode", "plugin",
 		"-o", soFile,
 		file, src,
 	)
+	raw, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(raw)
 	defer func() {
-		os.Remove(file)
+		//os.Remove(file)
+		//os.Remove(src)
 	}()
+
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -189,16 +195,21 @@ func loadSOFile(file string, src string) ([]byte, error) {
 	ms := s.(func() []byte)()
 	return ms, nil
 }
-func writeTmpSrcFile(structs []string, pkgName string) (string, error) {
+func writeTmpSrcFile(structs []string, pkgName string, src []byte) (string, string, error) {
 	newCode := genSrc(structs, pkgName)
 	buffer := bytes.NewBuffer(nil)
 	buffer.WriteString(newCode)
 	newName := fmt.Sprintf("./tmp%d.go", time.Now().Unix())
 	err := ioutil.WriteFile(newName, buffer.Bytes(), 0644)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return newName, nil
+	newSrcName := fmt.Sprintf("./srctmp%d.go", time.Now().Unix())
+	err = ioutil.WriteFile(newSrcName, src, 0644)
+	if err != nil {
+		return "", "", err
+	}
+	return newName, newSrcName, nil
 }
 
 func genSrc(structs []string, pkgName string) string {
@@ -207,7 +218,7 @@ func genSrc(structs []string, pkgName string) string {
 		list = append(list, fmt.Sprintf("new(%s)", v))
 	}
 	s := strings.Join(list, ",")
-	return fmt.Sprintf(baseSrc, pkgName, s)
+	return fmt.Sprintf(baseSrc, s)
 }
 func exportStruct(src string) ([]string, map[string]map[string]string, string) {
 	r := regexp.MustCompile(`( )+|(\n)+`)
@@ -262,18 +273,4 @@ func exportStruct(src string) ([]string, map[string]map[string]string, string) {
 		idx++
 	}
 	return rsp, m, pkgName
-}
-
-func humpToFiledRule(s string) string {
-	newS := strings.Builder{}
-	for i := 0; i < len(s); i++ {
-		if unicode.IsUpper(rune(s[i])) && i == 0 {
-			newS.WriteString(strings.ToLower(string(s[i])))
-		} else if unicode.IsUpper(rune(s[i])) {
-			newS.WriteString(strings.ToLower("_" + string(s[i])))
-		} else {
-			newS.WriteByte(s[i])
-		}
-	}
-	return newS.String()
 }

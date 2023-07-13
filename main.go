@@ -162,7 +162,12 @@ func toTable(ctx *cli.Context) error {
 		return fmt.Errorf("not found :%s,see godbtool add", name)
 	}
 	//re()
-	return struct2TableV2(file, conf)
+	return struct2Table(file, &DsnConf{
+		Ip:       conf.Host,
+		Port:     conf.Port,
+		User:     conf.User,
+		Pwd:      conf.Pwd,
+	})
 }
 func commands() cli.Commands {
 	tmp := cli.Commands{

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"regexp"
 	"strings"
+	"unicode"
 	"unsafe"
 )
 
@@ -64,6 +64,7 @@ func BytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 func struct2Table(srcFile string, dsn *DsnConf) error {
+
 	raw, err := ioutil.ReadFile(srcFile)
 	if err != nil {
 		return err
@@ -87,7 +88,6 @@ type exeModel struct {
 	SqlSrc   string
 }
 
-
 func genTableSql(src map[string]Model) []exeModel {
 	sqlStrList := make([]exeModel, 0)
 	for _, v := range src {
@@ -104,6 +104,7 @@ func genTableSql(src map[string]Model) []exeModel {
 	}
 	return sqlStrList
 }
+
 type structFiled struct {
 	Name       string
 	Type       string
@@ -135,6 +136,11 @@ func analysisSrc(src string) (map[string]Model, error) {
 	src = r.ReplaceAllString(src, "$1$2")
 	list := strings.Split(src, "\n")
 	idx := 0
+	strF := func(s string) string {
+		s = strings.ReplaceAll(s, "\t", "")
+		s = strings.TrimSpace(s)
+		return s
+	}
 	for idx < len(list) {
 		line := list[idx]
 		if strings.Contains(line, "type") && strings.Contains(line, "struct") {
@@ -157,9 +163,7 @@ func analysisSrc(src string) (map[string]Model, error) {
 					idx = i
 					break
 				}
-				list[i] = strings.ReplaceAll(list[i], "\t", "")
-				list[i] = strings.TrimSpace(list[i])
-
+				list[i] = strF(list[i])
 				fileds := strings.Split(list[i], " ")
 				if len(fileds) < 2 {
 					continue
@@ -232,7 +236,10 @@ func analysisSrc(src string) (map[string]Model, error) {
 	}
 	for k, v := range models {
 		if v.TableName == "" {
-			return models, errors.New("check src file should provide TableName function")
+			delete(models, k)
+			continue
+
+			//return models, errors.New("check src file should provide TableName function")
 		}
 		ts := strings.Split(v.TableName, ".")
 		if len(ts) == 2 {
@@ -250,3 +257,16 @@ func analysisSrc(src string) (map[string]Model, error) {
 	return models, nil
 }
 
+func humpToFiledRule(s string) string {
+	newS := strings.Builder{}
+	for i := 0; i < len(s); i++ {
+		if unicode.IsUpper(rune(s[i])) && i == 0 {
+			newS.WriteString(strings.ToLower(string(s[i])))
+		} else if unicode.IsUpper(rune(s[i])) {
+			newS.WriteString(strings.ToLower("_" + string(s[i])))
+		} else {
+			newS.WriteByte(s[i])
+		}
+	}
+	return newS.String()
+}
