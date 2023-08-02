@@ -75,6 +75,7 @@ func struct2Table(srcFile string, dsn *DsnConf) error {
 	}
 	sqlStrList := genTableSql(filedMap)
 	for _, v := range sqlStrList {
+		fmt.Println(v.SqlSrc)
 		err = exeSql(v, dsn)
 		if err != nil {
 			return err
@@ -141,8 +142,23 @@ func analysisSrc(src string) (map[string]Model, error) {
 		s = strings.TrimSpace(s)
 		return s
 	}
+	constMap := make(map[string]string)
 	for idx < len(list) {
 		line := list[idx]
+		if strings.Contains(line, "const") && strings.Contains(line, "(") {
+			for i := idx + 1; i < len(list); i++ {
+				constList := strings.Split(list[i], "=")
+				if len(constList) == 2 {
+					k := strF(constList[0])
+					v := strF(constList[1])
+					constMap[k] = v
+				}
+				if list[i] == ")" {
+					idx = i
+					break
+				}
+			}
+		}
 		if strings.Contains(line, "type") && strings.Contains(line, "struct") {
 			tmp := strings.Split(line, " ")
 			if len(tmp) < 2 {
@@ -213,10 +229,16 @@ func analysisSrc(src string) (map[string]Model, error) {
 			if modelName != "" {
 				tName := ""
 				for j := idx + 1; j < len(list); {
+					tmp := list[j]
 					list[j] = strings.ReplaceAll(list[j], "\t", "")
 					list[j] = strings.TrimSpace(list[j])
 					list[j] = strings.ReplaceAll(list[j], `"`, "")
 					tName = strings.Split(list[j], " ")[1]
+					if !strings.Contains(tmp, "\"") {
+						tName = constMap[tName]
+						tName = strings.ReplaceAll(tName, `"`, "")
+						//fmt.Println(tName)
+					}
 					idx = j
 					break
 				}
