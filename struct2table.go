@@ -94,7 +94,11 @@ func genTableSql(src map[string]Model) []exeModel {
 	for _, v := range src {
 		sqlStr := fmt.Sprintf(typeForGoToMysql["*create"], v.TableName)
 		for _, f := range v.Fileds {
-			sqlStr += fmt.Sprintf(typeForGoToMysql[f.Type], f.Tag, f.Annotation)
+			if f.Tag == "id" {
+				sqlStr += fmt.Sprintf(typeForGoToMysql["id"], f.Tag, f.Annotation)
+			} else {
+				sqlStr += fmt.Sprintf(typeForGoToMysql[f.Type], f.Tag, f.Annotation)
+			}
 		}
 		sqlStr += fmt.Sprintf(typeForGoToMysql["*PRIMARY"], "id")
 		sqlStr += typeForGoToMysql["*end"]
