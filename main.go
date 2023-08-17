@@ -163,10 +163,10 @@ func toTable(ctx *cli.Context) error {
 	}
 	//re()
 	return struct2Table(file, &DsnConf{
-		Ip:       conf.Host,
-		Port:     conf.Port,
-		User:     conf.User,
-		Pwd:      conf.Pwd,
+		Ip:   conf.Host,
+		Port: conf.Port,
+		User: conf.User,
+		Pwd:  conf.Pwd,
 	})
 }
 func commands() cli.Commands {
@@ -196,6 +196,11 @@ func commands() cli.Commands {
 			Usage:  "display conf,example:godbtool get [optional]",
 			Action: displayConf,
 		},
+		&cli.Command{
+			Name:   "todjango",
+			Usage:  "table to django code,example:godbtool todjango local table",
+			Action: toDjango,
+		},
 	}
 	return tmp
 }
@@ -222,4 +227,31 @@ func displayConf(ctx *cli.Context) error {
 	}
 	fmt.Println(Table(list))
 	return nil
+}
+
+//godbtool todjango local table
+func toDjango(ctx *cli.Context) error {
+	if ctx.NArg() != 2 {
+		return errors.New("godbtool tostruct args invalid example:godbtool todjango local user.user_profile")
+	}
+	name := ctx.Args().Get(0)
+	tName := ctx.Args().Get(1)
+
+	conf, ok := globalMap[name]
+	if !ok {
+		return fmt.Errorf("not found :%s,see godbtool add", name)
+	}
+	dbTable := strings.Split(tName, ".")
+	if len(dbTable) != 2 {
+		return fmt.Errorf("dbtable invalid example demo.user")
+	}
+	t2d := NewTable2Django()
+	err := t2d.Dsn(&DsnConf{
+		Ip:       conf.Host,
+		Port:     conf.Port,
+		DataBase: dbTable[0],
+		User:     conf.User,
+		Pwd:      conf.Pwd,
+	}).Table(dbTable[1]).Run()
+	return err
 }

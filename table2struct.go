@@ -267,6 +267,8 @@ type column struct {
 	TableName     string
 	ColumnComment string
 	Tag           string
+	ColumnDefault string
+	ColumnLength  string
 }
 
 // Function for fetching schema definition of passed table
